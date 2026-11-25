@@ -1,0 +1,31 @@
+name: Linux CPU baseline
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - name: Build server
+        run: dotnet build src/server/Server.csproj -c Release
+      - name: Build YOLOv5 .NET for CPU
+        run: dotnet build modules/ObjectDetectionYOLOv5Net/ObjectDetectionYOLOv5Net.csproj -c Release -p:GpuType=CPU
+      - name: SDK tests
+        run: dotnet test tests/CodeProject.AI.SDK.Tests/CodeProject.AI.SDK.Tests.csproj -c Release
+      - name: Queue tests
+        run: dotnet test tests/QueueServiceTests/CodeProject.AI.API.Server.Backend.Tests.csproj -c Release
+      - name: Benchmark script syntax
+        run: python3 -m py_compile devops/utils/benchmark_detection.py
