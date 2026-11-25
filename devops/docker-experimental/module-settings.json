@@ -8,6 +8,11 @@
       "GpuOptions": {
         "InstallGPU": false,
         "EnableGPU": false
+      },
+      "EnvironmentVariables": {
+        "CPAI_ONNX_INTRA_OP_THREADS": "2",
+        "CPAI_ONNX_INTER_OP_THREADS": "1",
+        "CPAI_ONNX_DISABLE_SPINNING": "1"
       }
     }
   }

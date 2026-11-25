@@ -64,7 +64,7 @@ namespace CodeProject.AI.Modules.ObjectDetection.YOLOv5
             try
             {
                 var modelFileInfo = new FileInfo(modelPath);
-                SessionOptions sessionOpts = GetSessionOptions();
+                using SessionOptions sessionOpts = GetSessionOptions();
 
                 if (modelFileInfo.Exists)
                 {
@@ -94,6 +94,12 @@ namespace CodeProject.AI.Modules.ObjectDetection.YOLOv5
             {
                 _logger.LogError(e, "Unable to initialise the YOLO scorer");
             }
+        }
+
+        private static int ReadThreadCount(string variable)
+        {
+            return int.TryParse(Environment.GetEnvironmentVariable(variable), out int count)
+                   && count >= 1 && count <= 64 ? count : 0;
         }
 
         private SessionOptions GetSessionOptions()
@@ -195,6 +201,31 @@ namespace CodeProject.AI.Modules.ObjectDetection.YOLOv5
                     CanUseGPU = true;
             }
 //#endif
+            // Opt-in CPU session tuning. Unset variables retain existing runtime defaults.
+            if (InferenceDevice == "CPU")
+            {
+                int intra = ReadThreadCount("CPAI_ONNX_INTRA_OP_THREADS");
+                int inter = ReadThreadCount("CPAI_ONNX_INTER_OP_THREADS");
+                if (intra > 0)
+                    sessionOpts.IntraOpNumThreads = intra;
+                if (inter > 0)
+                    sessionOpts.InterOpNumThreads = inter;
+
+                bool disableSpinning = Environment.GetEnvironmentVariable("CPAI_ONNX_DISABLE_SPINNING") == "1";
+                if (disableSpinning)
+                {
+                    sessionOpts.AddSessionConfigEntry("session.intra_op.allow_spinning", "0");
+                    sessionOpts.AddSessionConfigEntry("session.inter_op.allow_spinning", "0");
+                }
+
+                if (intra > 0 || inter > 0 || disableSpinning)
+                {
+                    sessionOpts.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
+                    sessionOpts.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
+                    _logger.LogInformation("ONNX CPU configuration: intra-op {Intra}, inter-op {Inter}, spinning disabled {Spinning}",
+                                           intra, inter, disableSpinning);
+                }
+            }
             sessionOpts.AppendExecutionProvider_CPU();
             return sessionOpts;
         }
