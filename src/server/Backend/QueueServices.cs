@@ -79,7 +79,7 @@ namespace CodeProject.AI.Server.Backend
             Channel<BackendRequestBase> queue = GetOrCreateQueue(queueName);
 
             // The backend process will return a JSON string as a response.
-            var completion = new TaskCompletionSource<string?>();
+            var completion = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             // Link a completion source to the request ID so that when this request is dequeued we
             // will be able to check that the corresponding task is not completed, but we will also
@@ -130,6 +130,9 @@ namespace CodeProject.AI.Server.Backend
                 if (jsonString is null)
                     return new ServerErrorResponse($"null json returned from backend (#reqid {request.reqid})");
 
+                if (JsonSerializer.Deserialize<JsonObject>(jsonString) is null)
+                    return new ServerErrorResponse($"null object from JSON string (#reqid {request.reqid})");
+
                 return jsonString;
             }
             catch (OperationCanceledException)
@@ -173,18 +176,22 @@ namespace CodeProject.AI.Server.Backend
             if (!_pendingResponses.TryGetValue(req_id, out TaskCompletionSource<string?>? completion))
                 return false;
 
+            if (!completion.TrySetResult(responseString))
+                return false;
+
+            // Diagnostics must never throw on a malformed module response.
+            JsonObject? response;
             try
             {
-                completion.SetResult(responseString);
+                response = responseString is null ? null : JsonSerializer.Deserialize<JsonObject>(responseString);
             }
-            catch (Exception e)
+            catch (JsonException)
             {
-                Console.WriteLine("Error setting completion result: " + e.Message);
+                return true; // SendRequestAsync reports the invalid JSON.
             }
 
-            // This is purely for debugging / trace: we unpack the response and try and get the
-            // command and message from the response for debug output
-            var response = JsonSerializer.Deserialize<JsonObject>(responseString ?? "");
+            if (response is null)
+                return true;
             string? command   = response?["command"]?.ToString();
             string? message   = response?["message"]?.ToString();
             string? moduleId  = response?["moduleId"]?.ToString() ?? "(unknown module)";

@@ -56,12 +56,12 @@ namespace QueueServiceTests
 ;
 
             Assert.NotNull(result);
-            Assert.IsType<ModuleErrorResponse>(result);
+            Assert.IsType<ServerErrorResponse>(result);
 
-            var errorResult = result as ModuleErrorResponse;
+            var errorResult = result as ServerErrorResponse;
             Assert.NotNull(errorResult);
             Assert.False(errorResult!.Success);
-            Assert.StartsWith("The request timed out.", errorResult.Error);
+            Assert.StartsWith("The request timed out", errorResult.Error);
         }
 
         [Fact]
@@ -148,7 +148,11 @@ namespace QueueServiceTests
 
             var result            = await requestTask;
             Assert.NotNull(result);
-            Assert.IsType<TestQueuedResponse>(result);
+            var json = Assert.IsType<string>(result);
+            var response = JsonSerializer.Deserialize<TestQueuedResponse>(json);
+            Assert.NotNull(response);
+            Assert.True(response!.Success);
+            Assert.Equal("Bob", response.Label);
         }
 
         [Fact]
@@ -159,9 +163,9 @@ namespace QueueServiceTests
             var secondRequestTask = _queueServices.SendRequestAsync(QueueName, request);
             var secondResult      = await secondRequestTask;
             Assert.NotNull(secondResult);
-            Assert.IsType<ModuleErrorResponse>(secondResult);
+            Assert.IsType<ServerErrorResponse>(secondResult);
 
-            var errorResult = secondResult as ModuleErrorResponse;
+            var errorResult = secondResult as ServerErrorResponse;
             Assert.NotNull(errorResult);
             Assert.False(errorResult!.Success);
             Assert.StartsWith("Unable to add pending response id", errorResult.Error);
@@ -181,11 +185,11 @@ namespace QueueServiceTests
 
             var result                 = await requestTask;
             Assert.NotNull(result);
-            Assert.IsType<ModuleErrorResponse>(result);
-            var errorResult           = result as ModuleErrorResponse;
+            Assert.IsType<ServerErrorResponse>(result);
+            var errorResult           = result as ServerErrorResponse;
             Assert.NotNull(errorResult);
             Assert.False(errorResult!.Success);
-            Assert.Equal("null json returned from backend.", errorResult.Error);
+            Assert.StartsWith("null json returned from backend", errorResult.Error);
         }
 
         [Fact]
@@ -202,12 +206,12 @@ namespace QueueServiceTests
 
             var result                = await requestTask;
             Assert.NotNull(result);
-            Assert.IsType<ModuleErrorResponse>(result);
+            Assert.IsType<ServerErrorResponse>(result);
 
-            var errorResult          = result as ModuleErrorResponse;
+            var errorResult          = result as ServerErrorResponse;
             Assert.NotNull(errorResult);
             Assert.False(errorResult!.Success);
-            Assert.Equal("Invalid JSON response from backend.", errorResult.Error);
+            Assert.StartsWith("Invalid JSON response from backend", errorResult.Error);
         }
 
         [Fact]
@@ -224,12 +228,12 @@ namespace QueueServiceTests
 
             var result                = await requestTask;
             Assert.NotNull(result);
-            Assert.IsType<ModuleErrorResponse>(result);
+            Assert.IsType<ServerErrorResponse>(result);
 
-            var errorResult           = result as ModuleErrorResponse;
+            var errorResult           = result as ServerErrorResponse;
             Assert.NotNull(errorResult);
             Assert.False(errorResult!.Success);
-            Assert.Equal("null object from JSON string.", errorResult.Error);
+            Assert.StartsWith("null object from JSON string", errorResult.Error);
         }
 
         [Fact]
@@ -270,11 +274,11 @@ namespace QueueServiceTests
             Assert.True(lastTask.IsCompletedSuccessfully);
 
             var lastResult = await lastTask;
-            Assert.IsType<ModuleErrorResponse>(lastResult);
+            Assert.IsType<ServerErrorResponse>(lastResult);
 
-            var errorResponse = lastResult as ModuleErrorResponse;
+            var errorResponse = lastResult as ServerErrorResponse;
             Assert.NotNull(errorResponse);
-            Assert.Equal("request queue is full.", errorResponse!.Error);
+            Assert.StartsWith($"Request queue '{QueueName}' is full", errorResponse!.Error);
 
             for (int i = 0; i < queueOptions.MaxQueueLength; i++)
             {
@@ -282,11 +286,11 @@ namespace QueueServiceTests
                 Assert.True(task.IsCompletedSuccessfully);
 
                 var result = await task;
-                Assert.IsType<ModuleErrorResponse>(result);
+                Assert.IsType<ServerErrorResponse>(result);
 
-                var errorResponse2 = result as ModuleErrorResponse;
+                var errorResponse2 = result as ServerErrorResponse;
                 Assert.NotNull(errorResponse2);
-                Assert.Equal("The request timed out.", errorResponse2!.Error);
+                Assert.StartsWith("The request timed out", errorResponse2!.Error);
             }
         }
 
@@ -301,11 +305,11 @@ namespace QueueServiceTests
 
             var result = await requestTask;
             Assert.NotNull(result);
-            Assert.IsType<ModuleErrorResponse>(result);
+            Assert.IsType<ServerErrorResponse>(result);
 
-            var errorResponse = result as ModuleErrorResponse;
+            var errorResponse = result as ServerErrorResponse;
             Assert.NotNull(errorResponse);
-            Assert.Equal("the request was canceled by caller.", errorResponse!.Error);
+            Assert.Contains("was canceled by caller", errorResponse!.Error);
         }
     }
 }
