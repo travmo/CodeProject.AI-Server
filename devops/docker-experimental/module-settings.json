@@ -1,0 +1,14 @@
+{
+  "Modules": {
+    "ObjectDetectionYOLOv5Net": {
+      "LaunchSettings": {
+        "AutoStart": true,
+        "Parallelism": 2
+      },
+      "GpuOptions": {
+        "InstallGPU": false,
+        "EnableGPU": false
+      }
+    }
+  }
+}

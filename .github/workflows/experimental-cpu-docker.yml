@@ -1,0 +1,38 @@
+name: Experimental CPU Docker
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'devops/docker-experimental/**'
+      - 'src/**'
+      - 'modules/ObjectDetectionYOLOv5Net/**'
+      - '.github/workflows/experimental-cpu-docker.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -f devops/docker-experimental/Dockerfile -t cpai-experimental:cpu .
+      - name: Smoke test server
+        run: |
+          docker run -d --name cpai-test -p 127.0.0.1:32169:32168 cpai-experimental:cpu
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:32169/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Container logs
+        if: always()
+        run: docker logs cpai-test || true
+      - name: Export image
+        run: docker save cpai-experimental:cpu | gzip > cpai-experimental-cpu.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cpai-experimental-cpu
+          path: cpai-experimental-cpu.tar.gz
+          retention-days: 7
