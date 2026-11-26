@@ -37,7 +37,7 @@ namespace CodeProject.AI.Modules.ObjectDetection.YOLOv5
     /// <summary>
     /// An YoloV5 object detector.
     /// </summary>
-    public class ObjectDetector
+    public class ObjectDetector : IDisposable
     {
         private readonly YoloScorer<YoloCocoP5Model>? _scorer = null;
         private readonly ILogger<ObjectDetector>      _logger;
@@ -300,6 +300,11 @@ namespace CodeProject.AI.Modules.ObjectDetection.YOLOv5
             { 
                 image?.Dispose(); 
             }
+        }
+        public void Dispose()
+        {
+            _scorer?.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

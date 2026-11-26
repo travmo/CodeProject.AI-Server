@@ -34,6 +34,7 @@ namespace CodeProject.AI.Modules.ObjectDetection.YOLOv5
         private const bool ShowTrace = false;
 
         private readonly ConcurrentDictionary<string, ObjectDetector> _detectors = new ();
+        private readonly object _detectorLoadLock = new ();
 
         private readonly ILogger<ObjectDetector> _logger;
         private readonly string _mode;
@@ -72,7 +73,7 @@ namespace CodeProject.AI.Modules.ObjectDetection.YOLOv5
 
             // Determine the GPU Hardware/ExecutionProvider
             var modelPath = GetStandardModelPath();
-            var detector = GetDetector(modelPath, addToCache: false);
+            using var detector = GetDetector(modelPath, addToCache: false);
             UpdateGpuInfo(detector);
         }
 
@@ -345,14 +346,22 @@ namespace CodeProject.AI.Modules.ObjectDetection.YOLOv5
 
         private ObjectDetector GetDetector(string modelPath, bool addToCache = true)
         {
-            if (!_detectors.TryGetValue(modelPath, out ObjectDetector? detector) || detector is null)
-            {
-                detector = new ObjectDetector(modelPath, _logger);
-                if (addToCache)
-                    _detectors.TryAdd(modelPath, detector);
-            }
+            if (!addToCache)
+                return new ObjectDetector(modelPath, _logger);
 
-            return detector;
+            if (_detectors.TryGetValue(modelPath, out ObjectDetector? detector))
+                return detector;
+
+            // Only one request may create a native session for a missing model.
+            lock (_detectorLoadLock)
+            {
+                if (_detectors.TryGetValue(modelPath, out detector))
+                    return detector;
+
+                detector = new ObjectDetector(modelPath, _logger);
+                _detectors[modelPath] = detector;
+                return detector;
+            }
         }
     }
 }
