@@ -10,6 +10,10 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  packages: write
+concurrency:
+  group: experimental-cpu-docker-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   docker:
     runs-on: ubuntu-24.04
@@ -17,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build image
-        run: docker build -f devops/docker-experimental/Dockerfile -t cpai-experimental:cpu .
+        run: docker build --label org.opencontainers.image.source=https://github.com/${{ github.repository }} --label org.opencontainers.image.revision=${{ github.sha }} -f devops/docker-experimental/Dockerfile -t cpai-experimental:cpu .
       - name: Smoke test server
         run: |
           docker run -d --name cpai-test -p 127.0.0.1:32169:32168 cpai-experimental:cpu
@@ -29,6 +33,19 @@ jobs:
       - name: Container logs
         if: always()
         run: docker logs cpai-test || true
+      - name: Publish tested image to GHCR
+        if: github.ref == 'refs/heads/develop'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          TAG="sha-${GITHUB_SHA}"
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag cpai-experimental:cpu "$IMAGE:$TAG"
+          docker push "$IMAGE:$TAG"
+          docker tag cpai-experimental:cpu "$IMAGE:develop"
+          docker push "$IMAGE:develop"
       - name: Export image
         run: docker save cpai-experimental:cpu | gzip > cpai-experimental-cpu.tar.gz
       - uses: actions/upload-artifact@v4
